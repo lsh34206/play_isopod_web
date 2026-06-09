@@ -20,8 +20,8 @@ export default function RegisterPage() {
     if (!username || !email || !password || !confirmPassword) {
       return '모든 필드를 입력해주세요.';
     }
-    if (username.length < 2 || username.length > 20) {
-      return '닉네임은 2~20자 사이여야 합니다.';
+    if (username.length < 3 || username.length > 20) {
+      return '닉네임은 3~20자 사이여야 합니다.';
     }
     if (password.length < 6) {
       return '비밀번호는 최소 6자 이상이어야 합니다.';
@@ -123,7 +123,7 @@ export default function RegisterPage() {
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="2~20자 닉네임"
+                  placeholder="3~20자 닉네임"
                   className="w-full bg-slate-700/50 border border-slate-600 text-white placeholder-slate-500 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50 transition-colors"
                   maxLength={20}
                 />

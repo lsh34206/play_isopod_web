@@ -1,5 +1,5 @@
 import apiClient from './axios';
-import type { AuthResponse } from '../types';
+import type { AuthResponse, User } from '../types';
 
 export const authApi = {
   login: async (email: string, password: string): Promise<AuthResponse> => {
@@ -20,16 +20,8 @@ export const authApi = {
     return response.data;
   },
 
-  getMe: async () => {
-    const response = await apiClient.get('/auth/me');
+  getProfile: async (): Promise<User> => {
+    const response = await apiClient.get('/auth/profile');
     return response.data;
-  },
-
-  logout: async () => {
-    try {
-      await apiClient.post('/auth/logout');
-    } catch {
-      // Ignore logout errors
-    }
   },
 };

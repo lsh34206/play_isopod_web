@@ -92,10 +92,9 @@ export class AuthService {
       throw new BadRequestException('사용자를 찾을 수 없습니다.');
     }
     return {
-      id: user._id.toString(),
+      _id: user._id.toString(),
       username: user.username,
       email: user.email,
-      displayName: user.displayName,
       createdAt: user.createdAt,
       lastLogin: user.lastLogin,
     };
