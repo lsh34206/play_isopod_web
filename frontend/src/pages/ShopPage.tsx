@@ -1,270 +1,155 @@
-import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { ShoppingCart, Coins, Gem, Package, Droplets, Thermometer, Users } from 'lucide-react';
-import toast from 'react-hot-toast';
+import React, { useState } from 'react';
+import { motion } from 'framer-motion';
+import { ShoppingCart, Coins, Gem, CheckCircle } from 'lucide-react';
 import { gameApi } from '../api/game';
+import { useGameState } from '../hooks/useGameState';
 import { useGameStore } from '../store/gameStore';
-
-interface ShopItem {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  currency: 'coins' | 'gems';
-  type: 'food' | 'spray' | 'heater' | 'cooler' | 'slot';
-  amount: number;
-  icon: string;
-  color: string;
-}
+import { useQueryClient } from '@tanstack/react-query';
+import type { ShopItem } from '../types';
+import toast from 'react-hot-toast';
 
 const SHOP_ITEMS: ShopItem[] = [
-  {
-    id: 'food-10',
-    name: '먹이 10개',
-    description: '공벌레에게 먹이를 줄 수 있습니다. 배고픔 +30',
-    price: 50,
-    currency: 'coins',
-    type: 'food',
-    amount: 10,
-    icon: '🍂',
-    color: 'border-amber-700',
-  },
-  {
-    id: 'food-50',
-    name: '먹이 50개',
-    description: '대량 구매 할인! 배고픔 +30',
-    price: 200,
-    currency: 'coins',
-    type: 'food',
-    amount: 50,
-    icon: '🍃',
-    color: 'border-amber-700',
-  },
-  {
-    id: 'food-200',
-    name: '먹이 200개',
-    description: '초대량 패키지! 배고픔 +30',
-    price: 700,
-    currency: 'coins',
-    type: 'food',
-    amount: 200,
-    icon: '🌿',
-    color: 'border-amber-700',
-  },
-  {
-    id: 'spray-5',
-    name: '습도 스프레이 5개',
-    description: '습도를 조절합니다. 습도 +10',
-    price: 80,
-    currency: 'coins',
-    type: 'spray',
-    amount: 5,
-    icon: '💧',
-    color: 'border-blue-700',
-  },
-  {
-    id: 'spray-20',
-    name: '습도 스프레이 20개',
-    description: '습도를 조절합니다. 습도 +10',
-    price: 280,
-    currency: 'coins',
-    type: 'spray',
-    amount: 20,
-    icon: '🌊',
-    color: 'border-blue-700',
-  },
-  {
-    id: 'heater-3',
-    name: '히터 3개',
-    description: '온도를 높입니다. 온도 +2°C',
-    price: 120,
-    currency: 'coins',
-    type: 'heater',
-    amount: 3,
-    icon: '🔥',
-    color: 'border-red-700',
-  },
-  {
-    id: 'cooler-3',
-    name: '쿨러 3개',
-    description: '온도를 낮춥니다. 온도 -2°C',
-    price: 120,
-    currency: 'coins',
-    type: 'cooler',
-    amount: 3,
-    icon: '❄️',
-    color: 'border-cyan-700',
-  },
-  {
-    id: 'slot-1',
-    name: '사육 슬롯 +1',
-    description: '공벌레를 한 마리 더 키울 수 있습니다',
-    price: 500,
-    currency: 'coins',
-    type: 'slot',
-    amount: 1,
-    icon: '🏠',
-    color: 'border-purple-700',
-  },
+  { id: 'food_small', name: '먹이 (소)', description: '공벌레에게 줄 먹이 10개', price: 50, currency: 'coins', type: 'food', amount: 10, icon: '🍃' },
+  { id: 'food_medium', name: '먹이 (중)', description: '먹이 50개 (10% 할인)', price: 225, currency: 'coins', type: 'food', amount: 50, icon: '🌿' },
+  { id: 'food_large', name: '먹이 (대)', description: '먹이 200개 (20% 할인)', price: 800, currency: 'coins', type: 'food', amount: 200, icon: '🌱' },
+  { id: 'spray_small', name: '습도 스프레이 (소)', description: '습도를 조절하는 스프레이 5개', price: 30, currency: 'coins', type: 'spray', amount: 5, icon: '💧' },
+  { id: 'spray_medium', name: '습도 스프레이 (중)', description: '습도 스프레이 20개', price: 100, currency: 'coins', type: 'spray', amount: 20, icon: '🫧' },
+  { id: 'heater_small', name: '미니 히터', description: '온도를 높이는 히터 3개', price: 80, currency: 'coins', type: 'heater', amount: 3, icon: '🔥' },
+  { id: 'cooler_small', name: '미니 쿨러', description: '온도를 낮추는 쿨러 3개', price: 80, currency: 'coins', type: 'cooler', amount: 3, icon: '❄️' },
+  { id: 'slot_expand', name: '슬롯 확장', description: '공벌레 슬롯 +5 증가', price: 5, currency: 'gems', type: 'slot', amount: 5, icon: '📦' },
+  { id: 'gem_small', name: '젬 10개', description: '프리미엄 화폐 10개', price: 1000, currency: 'coins', type: 'gem', amount: 10, icon: '💎' },
 ];
 
+const CATEGORY_LABELS: Record<string, string> = {
+  all: '전체', food: '먹이', spray: '스프레이', heater: '히터', cooler: '쿨러', slot: '슬롯', gem: '젬',
+};
+
+function ShopItemCard({ item, onBuy, canAfford, isLoading }: {
+  item: ShopItem; onBuy: (item: ShopItem, qty: number) => void; canAfford: boolean; isLoading: boolean;
+}) {
+  const [qty, setQty] = useState(1);
+  const [purchased, setPurchased] = useState(false);
+  const totalCost = item.price * qty;
+
+  const handleBuy = () => {
+    onBuy(item, qty);
+    setPurchased(true);
+    setTimeout(() => setPurchased(false), 1500);
+  };
+
+  const typeLabel: Record<string, string> = { food: '먹이', spray: '스프레이', heater: '히터', cooler: '쿨러', slot: '슬롯', gem: '젬' };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className={`bg-slate-800 border rounded-2xl p-4 transition-colors ${canAfford ? 'border-slate-700 hover:border-slate-600' : 'border-slate-700/50 opacity-60'}`}
+    >
+      <div className="flex items-start gap-3 mb-3">
+        <div className="text-4xl">{item.icon}</div>
+        <div className="flex-1 min-w-0">
+          <h3 className="text-white font-bold text-sm">{item.name}</h3>
+          <p className="text-slate-400 text-xs mt-0.5">{item.description}</p>
+          <div className="flex items-center gap-1 mt-1">
+            <span className="text-emerald-400 text-xs">+{item.amount}</span>
+            <span className="text-slate-500 text-xs">{typeLabel[item.type] || item.type}</span>
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-2 mb-3">
+        <button onClick={() => setQty(Math.max(1, qty - 1))} className="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm transition-colors flex items-center justify-center">-</button>
+        <span className="text-white font-mono text-sm w-6 text-center">{qty}</span>
+        <button onClick={() => setQty(Math.min(99, qty + 1))} className="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 text-white font-bold text-sm transition-colors flex items-center justify-center">+</button>
+        <div className="flex-1" />
+        <div className={`flex items-center gap-1 ${item.currency === 'gems' ? 'text-violet-400' : 'text-amber-400'}`}>
+          {item.currency === 'gems' ? <Gem size={13} /> : <Coins size={13} />}
+          <span className="font-bold text-sm">{totalCost.toLocaleString()}</span>
+        </div>
+      </div>
+      <button
+        onClick={handleBuy}
+        disabled={!canAfford || isLoading}
+        className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl font-semibold text-sm transition-all ${purchased ? 'bg-emerald-700 text-white' : canAfford ? 'bg-amber-600 hover:bg-amber-500 text-white' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}
+      >
+        {purchased ? (<><CheckCircle size={14} />구매 완료!</>) : (<><ShoppingCart size={14} />{canAfford ? '구매하기' : '재화 부족'}</>)}
+      </button>
+    </motion.div>
+  );
+}
+
 export default function ShopPage() {
-  const [quantities, setQuantities] = useState<Record<string, number>>({});
-  const { gameState, setGameState } = useGameStore();
-  const qc = useQueryClient();
+  const { gameState, refetch } = useGameState();
+  const { updateGameState } = useGameStore();
+  const queryClient = useQueryClient();
+  const [categoryFilter, setCategoryFilter] = useState('all');
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const categories = ['all', 'food', 'spray', 'heater', 'cooler', 'slot', 'gem'];
 
-  useQuery({
-    queryKey: ['game-state'],
-    queryFn: async () => {
-      const data = await gameApi.getState();
-      setGameState(data);
-      return data;
-    },
-  });
+  const filteredItems = categoryFilter === 'all' ? SHOP_ITEMS : SHOP_ITEMS.filter((item) => item.type === categoryFilter);
 
-  const buyMutation = useMutation({
-    mutationFn: ({ itemType, quantity }: { itemType: string; quantity: number }) =>
-      gameApi.buyItem(itemType, quantity),
-    onSuccess: (data) => {
-      setGameState(data.gameState);
-      toast.success(`구매 완료! ${data.cost.toLocaleString()} 코인 사용`);
-      qc.invalidateQueries({ queryKey: ['game-state'] });
-    },
-    onError: () => toast.error('구매 실패. 코인이 부족합니다.'),
-  });
-
-  const handleBuy = (item: ShopItem) => {
-    const qty = quantities[item.id] || 1;
-    buyMutation.mutate({ itemType: item.type, quantity: qty * item.amount });
+  const handleBuy = async (item: ShopItem, qty: number) => {
+    if (!gameState) return;
+    const totalCost = item.price * qty;
+    if (item.currency === 'coins' && gameState.coins < totalCost) { toast.error('코인이 부족합니다!'); return; }
+    if (item.currency === 'gems' && gameState.gems < totalCost) { toast.error('젬이 부족합니다!'); return; }
+    setIsPurchasing(true);
+    try {
+      const result = await gameApi.buyItem(item.id, qty);
+      updateGameState(result.gameState);
+      toast.success(`${item.name} ${qty}개 구매 완료!`);
+      refetch();
+      queryClient.invalidateQueries({ queryKey: ['gameState'] });
+    } catch (err: unknown) {
+      const message = (err as { response?: { data?: { message?: string } } })?.response?.data?.message || '구매 실패';
+      toast.error(message);
+    } finally {
+      setIsPurchasing(false);
+    }
   };
 
-  const totalCost = (item: ShopItem) => {
-    const qty = quantities[item.id] || 1;
-    return item.price * qty;
-  };
-
-  const canAfford = (item: ShopItem) => {
+  const canAffordItem = (item: ShopItem) => {
     if (!gameState) return false;
-    if (item.currency === 'coins') return gameState.coins >= totalCost(item);
-    return gameState.gems >= totalCost(item);
+    return item.currency === 'coins' ? gameState.coins >= item.price : gameState.gems >= item.price;
   };
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <ShoppingCart className="w-6 h-6 text-amber-400" />
-          <h1 className="text-xl font-bold">상점</h1>
-        </div>
-        <div className="flex items-center gap-4 text-sm">
-          <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-lg">
-            <Coins className="w-4 h-4 text-amber-400" />
-            <span className="text-amber-400 font-bold">{gameState?.coins.toLocaleString() ?? 0}</span>
-          </div>
-          <div className="flex items-center gap-1.5 bg-slate-800 px-3 py-1.5 rounded-lg">
-            <Gem className="w-4 h-4 text-violet-400" />
-            <span className="text-violet-400 font-bold">{gameState?.gems.toLocaleString() ?? 0}</span>
-          </div>
-        </div>
+      <div>
+        <h1 className="text-2xl font-black text-white mb-1">상점</h1>
+        <p className="text-slate-400 text-sm">공벌레 케어에 필요한 아이템을 구매하세요</p>
       </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {SHOP_ITEMS.map((item) => (
-          <div
-            key={item.id}
-            className={`bg-slate-900 border ${item.color} rounded-xl p-4 flex flex-col gap-3`}
-          >
-            <div className="flex items-start gap-3">
-              <span className="text-3xl">{item.icon}</span>
-              <div>
-                <p className="font-semibold">{item.name}</p>
-                <p className="text-xs text-slate-400">{item.description}</p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setQuantities((q) => ({ ...q, [item.id]: Math.max(1, (q[item.id] || 1) - 1) }))}
-                className="w-7 h-7 rounded bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-sm font-bold"
-              >
-                -
-              </button>
-              <span className="text-sm font-bold w-8 text-center">{quantities[item.id] || 1}</span>
-              <button
-                onClick={() => setQuantities((q) => ({ ...q, [item.id]: (q[item.id] || 1) + 1 }))}
-                className="w-7 h-7 rounded bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-sm font-bold"
-              >
-                +
-              </button>
-            </div>
-
-            <button
-              onClick={() => handleBuy(item)}
-              disabled={!canAfford(item) || buyMutation.isPending}
-              className="w-full py-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed
-                bg-amber-600 hover:bg-amber-500 text-white"
-            >
-              <span className="flex items-center justify-center gap-1.5">
-                {item.currency === 'coins' ? (
-                  <Coins className="w-3.5 h-3.5" />
-                ) : (
-                  <Gem className="w-3.5 h-3.5" />
-                )}
-                {totalCost(item).toLocaleString()}
-              </span>
-            </button>
+      {gameState && (
+        <div className="flex gap-4 flex-wrap">
+          <div className="flex items-center gap-2 bg-amber-900/20 border border-amber-700/40 rounded-xl px-4 py-2">
+            <Coins size={16} className="text-amber-400" />
+            <span className="text-amber-300 font-bold">{gameState.coins.toLocaleString()} 코인</span>
           </div>
+          <div className="flex items-center gap-2 bg-violet-900/20 border border-violet-700/40 rounded-xl px-4 py-2">
+            <Gem size={16} className="text-violet-400" />
+            <span className="text-violet-300 font-bold">{gameState.gems.toLocaleString()} 젬</span>
+          </div>
+        </div>
+      )}
+      <div className="flex gap-2 flex-wrap">
+        {categories.map((cat) => (
+          <button key={cat} onClick={() => setCategoryFilter(cat)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${categoryFilter === cat ? 'bg-amber-600 text-white' : 'bg-slate-800 text-slate-400 hover:text-white border border-slate-700'}`}>
+            {CATEGORY_LABELS[cat]}
+          </button>
         ))}
       </div>
-
-      <div className="bg-slate-900 border border-slate-700 rounded-xl p-5">
-        <h2 className="font-bold mb-4 flex items-center gap-2">
-          <Package className="w-5 h-5 text-amber-400" />
-          보유 아이템
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div className="bg-slate-800 rounded-lg p-3 text-center">
-            <p className="text-2xl mb-1">🍃</p>
-            <p className="text-xs text-slate-400">먹이</p>
-            <p className="text-lg font-bold text-amber-400">{gameState?.feedStock ?? 0}</p>
-          </div>
-          <div className="bg-slate-800 rounded-lg p-3 text-center">
-            <p className="text-2xl mb-1">💧</p>
-            <p className="text-xs text-slate-400">습도 스프레이</p>
-            <p className="text-lg font-bold text-blue-400">{gameState?.moistureSpray ?? 0}</p>
-          </div>
-          <div className="bg-slate-800 rounded-lg p-3 text-center">
-            <p className="text-2xl mb-1">🔥</p>
-            <p className="text-xs text-slate-400">히터</p>
-            <p className="text-lg font-bold text-red-400">{gameState?.heaterCount ?? 0}</p>
-          </div>
-          <div className="bg-slate-800 rounded-lg p-3 text-center">
-            <p className="text-2xl mb-1">❄️</p>
-            <p className="text-xs text-slate-400">쿨러</p>
-            <p className="text-lg font-bold text-cyan-400">{gameState?.coolerCount ?? 0}</p>
-          </div>
-        </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        {filteredItems.map((item) => (
+          <ShopItemCard key={item.id} item={item} onBuy={handleBuy} canAfford={canAffordItem(item)} isLoading={isPurchasing} />
+        ))}
       </div>
-
-      <div className="bg-slate-900 border border-slate-700 rounded-xl p-5">
-        <h2 className="font-bold mb-4 flex items-center gap-2">
-          <Users className="w-5 h-5 text-purple-400" />
-          슬롯 정보
-        </h2>
-        <div className="flex items-center gap-4">
-          <div className="flex-1 bg-slate-800 rounded-full h-3 overflow-hidden">
-            <div
-              className="bg-purple-500 h-full rounded-full transition-all"
-              style={{
-                width: gameState ? `${(gameState.totalIsopods / gameState.maxIsopods) * 100}%` : '0%',
-              }}
-            />
-          </div>
-          <span className="text-sm text-slate-300 whitespace-nowrap">
-            {gameState?.totalIsopods ?? 0} / {gameState?.maxIsopods ?? 5} 마리
-          </span>
+      <div className="bg-emerald-900/20 border border-emerald-700/30 rounded-2xl p-4">
+        <h3 className="text-emerald-300 font-semibold mb-2">💡 코인 획득 방법</h3>
+        <div className="grid sm:grid-cols-2 gap-2 text-sm text-slate-400">
+          <div className="flex items-center gap-2"><span>🐛</span><span>공벌레가 자동으로 코인 생성 (유휴 수익)</span></div>
+          <div className="flex items-center gap-2"><span>🍃</span><span>먹이를 주면 추가 경험치 및 코인</span></div>
+          <div className="flex items-center gap-2"><span>🏪</span><span>시장에서 공벌레 판매</span></div>
+          <div className="flex items-center gap-2"><span>🏆</span><span>업적 달성 시 보상</span></div>
         </div>
-        <p className="text-xs text-slate-500 mt-2">슬롯 확장: 1회당 500 코인</p>
       </div>
     </div>
   );
