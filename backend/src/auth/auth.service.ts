@@ -13,8 +13,8 @@ export class AuthService {
     private gameService: GameService,
   ) {}
 
-  async validateUser(username: string, password: string): Promise<any> {
-    const user = await this.usersService.findByUsername(username);
+  async validateUser(email: string, password: string): Promise<any> {
+    const user = await this.usersService.findByEmail(email);
     if (!user) return null;
 
     const isPasswordValid = await bcrypt.compare(password, user.password);
@@ -38,12 +38,11 @@ export class AuthService {
     await this.gameService.updateLoginStreak(user._id.toString());
 
     return {
-      access_token: token,
+      token,
       user: {
-        id: user._id.toString(),
+        _id: user._id.toString(),
         username: user.username,
         email: user.email,
-        displayName: user.displayName,
       },
     };
   }
@@ -78,12 +77,11 @@ export class AuthService {
     const token = this.jwtService.sign(payload);
 
     return {
-      access_token: token,
+      token,
       user: {
-        id: user._id.toString(),
+        _id: user._id.toString(),
         username: user.username,
         email: user.email,
-        displayName: user.displayName,
       },
     };
   }
