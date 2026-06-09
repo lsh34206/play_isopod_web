@@ -26,8 +26,7 @@ export class MarketService {
   async getActiveListings(page = 1, limit = 20): Promise<{
     listings: MarketListingDocument[];
     total: number;
-    page: number;
-    totalPages: number;
+    pages: number;
   }> {
     const skip = (page - 1) * limit;
     const total = await this.listingModel.countDocuments({ status: ListingStatus.LISTED });
@@ -36,14 +35,14 @@ export class MarketService {
       .sort({ listedAt: -1 })
       .skip(skip)
       .limit(limit)
-      .populate('sellerId', 'username displayName')
+      .populate('isopodId')
+      .populate('sellerId', 'username')
       .exec();
 
     return {
       listings,
       total,
-      page,
-      totalPages: Math.ceil(total / limit),
+      pages: Math.ceil(total / limit),
     };
   }
 
@@ -100,7 +99,7 @@ export class MarketService {
   async buyListing(
     buyerId: string,
     listingId: string,
-  ): Promise<{ listing: MarketListingDocument; isopod: IsopodDocument }> {
+  ): Promise<{ listing: MarketListingDocument; isopod: IsopodDocument; coinsSpent: number }> {
     const listing = await this.listingModel.findById(listingId).exec();
     if (!listing) throw new NotFoundException('판매 목록을 찾을 수 없습니다.');
     if (listing.status !== ListingStatus.LISTED) throw new BadRequestException('이미 판매되었거나 취소된 목록입니다.');
@@ -152,7 +151,7 @@ export class MarketService {
     listing.buyerId = new Types.ObjectId(buyerId);
     await listing.save();
 
-    return { listing, isopod };
+    return { listing, isopod, coinsSpent: listing.price };
   }
 
   async cancelListing(

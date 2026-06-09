@@ -1,11 +1,12 @@
 import apiClient from './axios';
-import type { MarketListing } from '../types';
+import type { MarketListing, Isopod } from '../types';
 
 export const marketApi = {
-  getListings: async (page = 1, grade?: string): Promise<{ listings: MarketListing[]; total: number; pages: number }> => {
-    const params = new URLSearchParams({ page: String(page) });
-    if (grade) params.set('grade', grade);
-    const response = await apiClient.get(`/market?${params}`);
+  getListings: async (
+    page = 1,
+    limit = 20
+  ): Promise<{ listings: MarketListing[]; total: number; pages: number }> => {
+    const response = await apiClient.get('/market/listings', { params: { page, limit } });
     return response.data;
   },
 
@@ -19,12 +20,12 @@ export const marketApi = {
     return response.data;
   },
 
-  buy: async (listingId: string): Promise<{ listing: MarketListing; coinsSpent: number }> => {
-    const response = await apiClient.post(`/market/${listingId}/buy`);
+  buy: async (listingId: string): Promise<{ listing: MarketListing; isopod: Isopod; coinsSpent: number }> => {
+    const response = await apiClient.post(`/market/buy/${listingId}`);
     return response.data;
   },
 
   cancel: async (listingId: string): Promise<void> => {
-    await apiClient.delete(`/market/${listingId}`);
+    await apiClient.delete(`/market/cancel/${listingId}`);
   },
 };

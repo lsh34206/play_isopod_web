@@ -111,7 +111,7 @@ export default function CarePage() {
 
   const handleHeat = () => {
     if (!selectedIsopod) return;
-    if (!gameState || gameState.heaterCount <= 0) {
+    if (!gameState || gameState.heater <= 0) {
       toast.error('히터가 부족합니다!');
       return;
     }
@@ -121,7 +121,7 @@ export default function CarePage() {
 
   const handleCool = () => {
     if (!selectedIsopod) return;
-    if (!gameState || gameState.coolerCount <= 0) {
+    if (!gameState || gameState.cooler <= 0) {
       toast.error('쿨러가 부족합니다!');
       return;
     }
@@ -291,28 +291,28 @@ export default function CarePage() {
 
                     <button
                       onClick={handleHeat}
-                      disabled={isCaring || !gameState || gameState.heaterCount <= 0}
+                      disabled={isCaring || !gameState || gameState.heater <= 0}
                       className="flex flex-col items-center gap-2 p-4 rounded-xl bg-orange-600/20 border border-orange-700/50 hover:bg-orange-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
                       <span className="text-2xl">🔥</span>
                       <div>
                         <div className="text-orange-300 font-semibold text-sm">히터 사용</div>
                         <div className="text-orange-600 text-xs">
-                          +3°C • 보유: {gameState?.heaterCount ?? 0}개
+                          +3°C • 보유: {gameState?.heater ?? 0}개
                         </div>
                       </div>
                     </button>
 
                     <button
                       onClick={handleCool}
-                      disabled={isCaring || !gameState || gameState.coolerCount <= 0}
+                      disabled={isCaring || !gameState || gameState.cooler <= 0}
                       className="flex flex-col items-center gap-2 p-4 rounded-xl bg-cyan-600/20 border border-cyan-700/50 hover:bg-cyan-600/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                     >
                       <span className="text-2xl">❄️</span>
                       <div>
                         <div className="text-cyan-300 font-semibold text-sm">쿨러 사용</div>
                         <div className="text-cyan-600 text-xs">
-                          -3°C • 보유: {gameState?.coolerCount ?? 0}개
+                          -3°C • 보유: {gameState?.cooler ?? 0}개
                         </div>
                       </div>
                     </button>

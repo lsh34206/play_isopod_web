@@ -38,11 +38,11 @@ export interface GameState {
   maxIsopods: number;
   feedStock: number;
   moistureSpray: number;
-  heaterCount: number;
-  coolerCount: number;
+  heater: number;
+  cooler: number;
   totalEarned: number;
   totalSold: number;
-  achievements: string[];
+  achievements: { id: string; name: string; description: string; unlockedAt: string }[];
   loginStreak: number;
   lastLogin: string;
 }
@@ -55,6 +55,7 @@ export interface RankingEntry {
   highestGrade: string;
   totalValue: number;
   topIsopodName: string;
+  totalEarned: number;
 }
 
 export interface BreedingSession {

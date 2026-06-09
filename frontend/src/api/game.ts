@@ -19,14 +19,4 @@ export const gameApi = {
     const response = await apiClient.post('/game/shop/buy', { itemType, quantity });
     return response.data;
   },
-
-  getDailyReward: async (): Promise<{ reward: number; streak: number; gameState: GameState }> => {
-    const response = await apiClient.post('/game/daily-reward');
-    return response.data;
-  },
-
-  getAchievements: async (): Promise<string[]> => {
-    const response = await apiClient.get('/game/achievements');
-    return response.data;
-  },
 };

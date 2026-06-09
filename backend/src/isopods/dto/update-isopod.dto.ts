@@ -20,14 +20,6 @@ export class UpdateIsopodDto {
 
 export class CareIsopodDto {
   @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Max(100)
-  targetHumidity?: number;
-
-  @IsOptional()
-  @IsNumber()
-  @Min(10)
-  @Max(40)
-  targetTemperature?: number;
+  @IsString()
+  action?: 'spray' | 'heat' | 'cool';
 }

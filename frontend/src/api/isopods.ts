@@ -12,6 +12,11 @@ export const isopodsApi = {
     return response.data;
   },
 
+  create: async (data: { name: string; species: string }): Promise<Isopod> => {
+    const response = await apiClient.post('/isopods', data);
+    return response.data;
+  },
+
   feed: async (id: string): Promise<{ isopod: Isopod; coinsEarned: number }> => {
     const response = await apiClient.post(`/isopods/${id}/feed`);
     return response.data;
@@ -25,20 +30,12 @@ export const isopodsApi = {
     return response.data;
   },
 
-  create: async (data: {
-    name: string;
-    species: string;
-  }): Promise<Isopod> => {
-    const response = await apiClient.post('/isopods', data);
+  upgrade: async (id: string): Promise<Isopod> => {
+    const response = await apiClient.post(`/isopods/${id}/upgrade`);
     return response.data;
   },
 
   delete: async (id: string): Promise<void> => {
     await apiClient.delete(`/isopods/${id}`);
-  },
-
-  collectIdle: async (): Promise<{ coins: number; total: number }> => {
-    const response = await apiClient.post('/isopods/collect-idle');
-    return response.data;
   },
 };

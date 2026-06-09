@@ -165,30 +165,66 @@ export class GameService {
     return state;
   }
 
-  async collectIdleEarnings(userId: string): Promise<{ collected: number; state: GameStateDocument }> {
+  async shopBuy(
+    userId: string,
+    itemType: string,
+    quantity: number,
+  ): Promise<{ gameState: GameStateDocument; cost: number }> {
+    const SHOP_MAP: Record<string, { category: string; amount: number; cost: number }> = {
+      food_small:   { category: 'food',    amount: 10,  cost: 50   },
+      food_medium:  { category: 'food',    amount: 50,  cost: 225  },
+      food_large:   { category: 'food',    amount: 200, cost: 800  },
+      spray_small:  { category: 'spray',   amount: 5,   cost: 30   },
+      spray_medium: { category: 'spray',   amount: 20,  cost: 100  },
+      heater_small: { category: 'heater',  amount: 3,   cost: 80   },
+      cooler_small: { category: 'cooler',  amount: 3,   cost: 80   },
+      slot_expand:  { category: 'slot',    amount: 5,   cost: 500  },
+      gem_small:    { category: 'gem',     amount: 10,  cost: 1000 },
+    };
+
+    const item = SHOP_MAP[itemType];
+    if (!item) throw new BadRequestException('유효하지 않은 아이템입니다.');
+
+    const totalCost = item.cost * quantity;
+    const state = await this.getOrCreateGameState(userId);
+
+    if (state.coins < totalCost) {
+      throw new BadRequestException(`코인이 부족합니다. 필요: ${totalCost}, 보유: ${state.coins}`);
+    }
+
+    state.coins -= totalCost;
+    switch (item.category) {
+      case 'food':   state.feedStock     += item.amount * quantity; break;
+      case 'spray':  state.moistureSpray += item.amount * quantity; break;
+      case 'heater': state.heater        += item.amount * quantity; break;
+      case 'cooler': state.cooler        += item.amount * quantity; break;
+      case 'slot':   state.maxIsopods    += item.amount * quantity; break;
+      case 'gem':    state.gems          += item.amount * quantity; break;
+    }
+    await state.save();
+    return { gameState: state, cost: totalCost };
+  }
+
+  async collectIdleEarnings(userId: string): Promise<{ coins: number; gameState: GameStateDocument }> {
     const state = await this.getOrCreateGameState(userId);
 
     const now = new Date();
     const lastCollect = state.lastIdleCollect || state.createdAt || now;
     const minutesElapsed = Math.min(
       Math.floor((now.getTime() - lastCollect.getTime()) / (1000 * 60)),
-      480, // max 8 hours of idle earnings
+      480,
     );
 
-    if (minutesElapsed < 1) {
-      return { collected: 0, state };
+    const coins = minutesElapsed < 1 ? 0 : Math.max(0, minutesElapsed * 2);
+
+    if (coins > 0) {
+      state.coins += coins;
+      state.totalEarned += coins;
+      state.lastIdleCollect = now;
+      await state.save();
     }
 
-    // Import IsopodsService would cause circular dependency, so we use a simpler calculation
-    // The actual generation is handled by cron, this just acknowledges collection
-    const collected = Math.max(0, minutesElapsed * 2); // simplified: 2 coins/min baseline
-
-    state.coins += collected;
-    state.totalEarned += collected;
-    state.lastIdleCollect = now;
-    await state.save();
-
-    return { collected, state };
+    return { coins, gameState: state };
   }
 
   // Called by IsopodsService cron

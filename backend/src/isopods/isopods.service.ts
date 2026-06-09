@@ -112,7 +112,7 @@ export class IsopodsService {
     return isopod;
   }
 
-  async feedIsopod(id: string, userId: string): Promise<IsopodDocument> {
+  async feedIsopod(id: string, userId: string): Promise<{ isopod: IsopodDocument; coinsEarned: number }> {
     const isopod = await this.findOneByOwner(id, userId);
 
     if (!isopod.isAlive) {
@@ -124,25 +124,27 @@ export class IsopodsService {
       throw new BadRequestException('먹이가 부족합니다. 먹이를 구매해주세요.');
     }
 
-    // Decrement feed stock
     await this.gameService.decrementFeedStock(userId);
 
-    // Feed the isopod
     const hungerGain = 20 + Math.floor(Math.random() * 10);
     const expGain = 5 + isopod.level;
+    const coinsEarned = isopod.level * 2;
 
     isopod.hunger = Math.min(100, isopod.hunger + hungerGain);
     isopod.happiness = Math.min(100, isopod.happiness + 5);
     isopod.lastFedAt = new Date();
 
-    // Grant exp
     await this.grantExp(isopod, expGain);
-
     await isopod.save();
-    return isopod;
+
+    if (coinsEarned > 0) {
+      await this.gameService.addIdleEarnings(userId, coinsEarned);
+    }
+
+    return { isopod, coinsEarned };
   }
 
-  async careIsopod(id: string, userId: string, dto: CareIsopodDto): Promise<IsopodDocument> {
+  async careIsopod(id: string, userId: string, dto: CareIsopodDto): Promise<{ isopod: IsopodDocument }> {
     const isopod = await this.findOneByOwner(id, userId);
 
     if (!isopod.isAlive) {
@@ -150,44 +152,31 @@ export class IsopodsService {
     }
 
     const gameState = await this.gameService.getOrCreateGameState(userId);
+    const action = dto.action;
 
-    let itemsUsed = false;
-
-    if (dto.targetHumidity !== undefined) {
-      if (gameState.moistureSpray <= 0) {
-        throw new BadRequestException('습도 조절기가 부족합니다.');
-      }
+    if (action === 'spray') {
+      if (gameState.moistureSpray <= 0) throw new BadRequestException('습도 스프레이가 부족합니다.');
       await this.gameService.decrementMoistureSpray(userId);
-      isopod.humidity = Math.max(0, Math.min(100, dto.targetHumidity));
-      itemsUsed = true;
+      isopod.humidity = Math.min(100, isopod.humidity + 10);
+    } else if (action === 'heat') {
+      if (gameState.heater <= 0) throw new BadRequestException('히터가 부족합니다.');
+      await this.gameService.decrementHeater(userId);
+      isopod.temperature = Math.min(35, isopod.temperature + 2);
+    } else if (action === 'cool') {
+      if (gameState.cooler <= 0) throw new BadRequestException('쿨러가 부족합니다.');
+      await this.gameService.decrementCooler(userId);
+      isopod.temperature = Math.max(15, isopod.temperature - 2);
+    } else {
+      throw new BadRequestException('유효한 액션을 입력하세요: spray, heat, cool');
     }
 
-    if (dto.targetTemperature !== undefined) {
-      const currentTemp = isopod.temperature;
-      if (dto.targetTemperature > currentTemp && gameState.heater <= 0) {
-        throw new BadRequestException('히터가 부족합니다.');
-      }
-      if (dto.targetTemperature < currentTemp && gameState.cooler <= 0) {
-        throw new BadRequestException('쿨러가 부족합니다.');
-      }
-      if (dto.targetTemperature > currentTemp) {
-        await this.gameService.decrementHeater(userId);
-      } else {
-        await this.gameService.decrementCooler(userId);
-      }
-      isopod.temperature = dto.targetTemperature;
-      itemsUsed = true;
-    }
-
-    if (itemsUsed) {
-      const expGain = 3 + isopod.level;
-      isopod.happiness = Math.min(100, isopod.happiness + 10);
-      isopod.lastCaredAt = new Date();
-      await this.grantExp(isopod, expGain);
-    }
-
+    const expGain = 3 + isopod.level;
+    isopod.happiness = Math.min(100, isopod.happiness + 10);
+    isopod.lastCaredAt = new Date();
+    await this.grantExp(isopod, expGain);
     await isopod.save();
-    return isopod;
+
+    return { isopod };
   }
 
   async upgradeGrade(id: string, userId: string): Promise<IsopodDocument> {

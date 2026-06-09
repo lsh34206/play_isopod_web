@@ -331,14 +331,14 @@ export default function DashboardPage() {
             <div className="flex items-center gap-2">
               <span className="text-lg">🔥</span>
               <div>
-                <div className="text-white text-sm font-semibold">{gameState.heaterCount}</div>
+                <div className="text-white text-sm font-semibold">{gameState.heater}</div>
                 <div className="text-slate-500 text-xs">히터</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
               <span className="text-lg">❄️</span>
               <div>
-                <div className="text-white text-sm font-semibold">{gameState.coolerCount}</div>
+                <div className="text-white text-sm font-semibold">{gameState.cooler}</div>
                 <div className="text-slate-500 text-xs">쿨러</div>
               </div>
             </div>

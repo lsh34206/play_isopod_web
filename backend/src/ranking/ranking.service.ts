@@ -9,12 +9,11 @@ export interface RankingEntry {
   rank: number;
   userId: string;
   username: string;
-  displayName: string;
   totalIsopods: number;
   totalValue: number;
-  highestLevel: number;
+  highestGrade: string;
+  topIsopodName: string;
   totalEarned: number;
-  loginStreak: number;
 }
 
 @Injectable()
@@ -25,36 +24,42 @@ export class RankingService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
   ) {}
 
+  private readonly GRADE_ORDER = ['D', 'C', 'B', 'A', 'S', 'SS', 'SSS'];
+
   async getTopRanking(limit = 20): Promise<RankingEntry[]> {
-    // Aggregate isopod values per user
-    const isopodValueAgg = await this.isopodModel.aggregate([
+    const isopodAgg = await this.isopodModel.aggregate([
       { $match: { isAlive: true } },
+      { $sort: { sellPrice: -1 } },
       {
         $group: {
           _id: '$owner',
           totalValue: { $sum: '$sellPrice' },
-          highestLevel: { $max: '$level' },
           count: { $sum: 1 },
+          topIsopodName: { $first: '$name' },
+          grades: { $push: '$grade' },
         },
       },
     ]);
 
-    const isopodMap = new Map<
-      string,
-      { totalValue: number; highestLevel: number; count: number }
-    >();
-    for (const entry of isopodValueAgg) {
+    const isopodMap = new Map<string, {
+      totalValue: number; count: number; topIsopodName: string; highestGrade: string;
+    }>();
+
+    for (const entry of isopodAgg) {
+      const highestGrade = entry.grades.reduce((best: string, g: string) => {
+        return this.GRADE_ORDER.indexOf(g) > this.GRADE_ORDER.indexOf(best) ? g : best;
+      }, 'D');
       isopodMap.set(entry._id.toString(), {
         totalValue: entry.totalValue,
-        highestLevel: entry.highestLevel,
         count: entry.count,
+        topIsopodName: entry.topIsopodName || '',
+        highestGrade,
       });
     }
 
-    // Get all game states
     const gameStates = await this.gameStateModel
       .find()
-      .populate('userId', 'username displayName')
+      .populate('userId', 'username')
       .exec();
 
     const entries: RankingEntry[] = [];
@@ -64,45 +69,36 @@ export class RankingService {
       if (!user || !user.username) continue;
 
       const userId = user._id.toString();
-      const isopodData = isopodMap.get(userId) || {
-        totalValue: 0,
-        highestLevel: 0,
-        count: 0,
-      };
+      const iso = isopodMap.get(userId) || { totalValue: 0, count: 0, topIsopodName: '', highestGrade: 'D' };
 
       entries.push({
-        rank: 0, // Will be assigned after sorting
+        rank: 0,
         userId,
         username: user.username,
-        displayName: user.displayName || user.username,
-        totalIsopods: isopodData.count,
-        totalValue: isopodData.totalValue,
-        highestLevel: isopodData.highestLevel,
+        totalIsopods: iso.count,
+        totalValue: iso.totalValue,
+        highestGrade: iso.highestGrade,
+        topIsopodName: iso.topIsopodName,
         totalEarned: state.totalEarned,
-        loginStreak: state.loginStreak,
       });
     }
 
-    // Sort by total value desc, then by total earned desc
     entries.sort((a, b) => {
       if (b.totalValue !== a.totalValue) return b.totalValue - a.totalValue;
-      if (b.highestLevel !== a.highestLevel) return b.highestLevel - a.highestLevel;
+      const aGi = this.GRADE_ORDER.indexOf(a.highestGrade);
+      const bGi = this.GRADE_ORDER.indexOf(b.highestGrade);
+      if (bGi !== aGi) return bGi - aGi;
       return b.totalEarned - a.totalEarned;
     });
 
-    // Assign ranks and return top N
-    return entries.slice(0, limit).map((entry, idx) => ({
-      ...entry,
-      rank: idx + 1,
-    }));
+    return entries.slice(0, limit).map((e, idx) => ({ ...e, rank: idx + 1 }));
   }
 
-  async getMyRank(userId: string): Promise<{ rank: number; entry: RankingEntry } | null> {
+  async getMyRank(userId: string): Promise<RankingEntry | null> {
     const allRanking = await this.getTopRanking(1000);
     const myEntry = allRanking.find((e) => e.userId === userId);
 
     if (!myEntry) {
-      // User not in ranking yet — build their entry
       const user = await this.userModel.findById(userId).exec();
       const state = await this.gameStateModel
         .findOne({ userId: new Types.ObjectId(userId) })
@@ -112,20 +108,16 @@ export class RankingService {
 
       return {
         rank: allRanking.length + 1,
-        entry: {
-          rank: allRanking.length + 1,
-          userId,
-          username: user.username,
-          displayName: user.displayName || user.username,
-          totalIsopods: 0,
-          totalValue: 0,
-          highestLevel: 0,
-          totalEarned: state.totalEarned,
-          loginStreak: state.loginStreak,
-        },
+        userId,
+        username: user.username,
+        totalIsopods: 0,
+        totalValue: 0,
+        highestGrade: 'D',
+        topIsopodName: '',
+        totalEarned: state.totalEarned,
       };
     }
 
-    return { rank: myEntry.rank, entry: myEntry };
+    return myEntry;
   }
 }

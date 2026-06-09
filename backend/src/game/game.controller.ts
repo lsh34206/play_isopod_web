@@ -10,18 +10,11 @@ import {
 } from '@nestjs/common';
 import { GameService } from './game.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { IsNumber, IsString, Min, IsIn } from 'class-validator';
+import { IsNumber, IsString, Min } from 'class-validator';
 
-class BuyFoodDto {
-  @IsNumber()
-  @Min(1)
-  quantity: number;
-}
-
-class BuyItemsDto {
+class ShopBuyDto {
   @IsString()
-  @IsIn(['moistureSpray', 'heater', 'cooler'])
-  itemType: 'moistureSpray' | 'heater' | 'cooler';
+  itemType: string;
 
   @IsNumber()
   @Min(1)
@@ -38,16 +31,10 @@ export class GameController {
     return this.gameService.getGameState(req.user.userId);
   }
 
-  @Post('buy-food')
+  @Post('shop/buy')
   @HttpCode(HttpStatus.OK)
-  async buyFood(@Request() req, @Body() dto: BuyFoodDto) {
-    return this.gameService.buyFood(req.user.userId, dto.quantity);
-  }
-
-  @Post('buy-items')
-  @HttpCode(HttpStatus.OK)
-  async buyItems(@Request() req, @Body() dto: BuyItemsDto) {
-    return this.gameService.buyItems(req.user.userId, dto.itemType, dto.quantity);
+  async shopBuy(@Request() req, @Body() dto: ShopBuyDto) {
+    return this.gameService.shopBuy(req.user.userId, dto.itemType, dto.quantity);
   }
 
   @Post('expand-slots')
