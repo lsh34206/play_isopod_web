@@ -12,7 +12,7 @@ import { MarketModule } from './market/market.module';
 @Module({
   imports: [
     MongooseModule.forRoot(
-      process.env.MONGODB_URI || 'mongodb://localhost:27017/isopod_game',
+      process.env.MONGODB_URI || 'mongodb+srv://lsh34206:shhs1004@cluster0.amaaaue.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0/isopod_game',
     ),
     ScheduleModule.forRoot(),
     AuthModule,
